@@ -5,9 +5,7 @@ const {
   revenue,
   users,
 } = require('../app/lib/placeholder-data.js');
-// const bcrypt = require('bcrypt');
-const simplecrypt = require("simplecrypt")
-const sc = simplecrypt()
+const bcrypt = require("bcryptjs")
 
 async function seedUsers(client) {
   try {
@@ -28,12 +26,16 @@ async function seedUsers(client) {
     const insertedUsers = await Promise.all(
       users.map(async (user) => {
         // const hashedPassword = await bcrypt.hash(user.password, 10);
-        const hashedPassword = await sc.encrypt(user.password)
-        return client.sql`
-        INSERT INTO users (id, name, email, password)
-        VALUES (${user.id}, ${user.name}, ${user.email}, ${hashedPassword})
-        ON CONFLICT (id) DO NOTHING;
-      `;
+        await bcrypt.genSalt(10,(err,salt) => {
+          bcrypt.hash(user.password,salt,( err,hash) => {
+            const hashedPassword = hash
+            return client.sql`
+            INSERT INTO users (id, name, email, password)
+            VALUES (${user.id}, ${user.name}, ${user.email}, ${hashedPassword})
+            ON CONFLICT (id) DO NOTHING;
+          `;
+          })
+        })
       }),
     );
 
@@ -96,7 +98,7 @@ async function seedCustomers(client) {
     // Create the "customers" table if it doesn't exist
     const createTable = await client.sql`
       CREATE TABLE IF NOT EXISTS customers (
-        id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+      id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255) NOT NULL,
         image_url VARCHAR(255) NOT NULL
